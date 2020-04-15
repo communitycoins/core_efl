@@ -2798,7 +2798,7 @@
     </message>
     <message>
         <source>Copy full transaction details</source>
-        <translation>Kopieer volledige transactiedetials</translation>
+        <translation>Kopieer volledige transactiedetails</translation>
     </message>
     <message>
         <source>Edit label</source>
