@@ -1,4 +1,4 @@
-image: ubuntu:trusty
+image: ubuntu:focal
 
 variables:
   BUILD_DEPS: curl ca-certificates build-essential libtool autotools-dev automake pkg-config libssl-dev libevent-dev bsdmainutils
