@@ -125,7 +125,7 @@ build:win-64:
   script:
   - dpkg --add-architecture i386
   - apt-get update
-  - apt-get install -y --no-install-recommends -qq $BUILD_DEPS $COMMON_DEPS nsis wine bc g++-mingw-w64-i686 mingw-w64-i686-dev g++-mingw-w64-x86-64 mingw-w64-x86-64-dev
+  - apt-get install -y --no-install-recommends -qq $BUILD_DEPS $COMMON_DEPS nsis wine-stable bc g++-mingw-w64-i686 mingw-w64-i686-dev g++-mingw-w64-x86-64 mingw-w64-x86-64-dev
   - cd ./depends
   - make HOST=$HOST -j4 | tee $LOGDIR/depends.log
   - cd ..
@@ -148,7 +148,7 @@ build:win-32:
   script:
   - dpkg --add-architecture i386
   - apt-get update
-  - apt-get install -y --no-install-recommends -qq $BUILD_DEPS $COMMON_DEPS nsis wine bc g++-mingw-w64-i686 mingw-w64-i686-dev g++-mingw-w64-x86-64 mingw-w64-x86-64-dev
+  - apt-get install -y --no-install-recommends -qq $BUILD_DEPS $COMMON_DEPS nsis wine-stable bc g++-mingw-w64-i686 mingw-w64-i686-dev g++-mingw-w64-x86-64 mingw-w64-x86-64-dev
   - cd ./depends
   - make HOST=$HOST -j4 | tee $LOGDIR/depends.log
   - cd ..
