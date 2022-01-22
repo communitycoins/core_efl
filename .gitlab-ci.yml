@@ -1,8 +1,8 @@
-image: ubuntu:trusty
+image: ubuntu:bionic
 
 variables:
   BUILD_DEPS: curl ca-certificates build-essential libtool autotools-dev automake pkg-config libssl-dev libevent-dev bsdmainutils
-  COMMON_DEPS: python python-pip python-dev python-setuptools python-zmq openjdk-7-jre-headless
+  COMMON_DEPS: python python-pip python-dev python-setuptools python-zmq openjdk-8-jre-headless
   BINDIR: $CI_PROJECT_DIR/out/bin
   LIBDIR: $CI_PROJECT_DIR/out/libs
   LOGDIR: $CI_PROJECT_DIR/out/logs
@@ -125,7 +125,7 @@ build:win-64:
   script:
   - dpkg --add-architecture i386
   - apt-get update
-  - apt-get install -y --no-install-recommends -qq $BUILD_DEPS $COMMON_DEPS nsis wine bc g++-mingw-w64-i686 mingw-w64-i686-dev g++-mingw-w64-x86-64 mingw-w64-x86-64-dev
+  - apt-get install -y --no-install-recommends -qq $BUILD_DEPS $COMMON_DEPS nsis wine-stable bc g++-mingw-w64-i686 mingw-w64-i686-dev g++-mingw-w64-x86-64 mingw-w64-x86-64-dev
   - cd ./depends
   - make HOST=$HOST -j4 | tee $LOGDIR/depends.log
   - cd ..
@@ -148,7 +148,7 @@ build:win-32:
   script:
   - dpkg --add-architecture i386
   - apt-get update
-  - apt-get install -y --no-install-recommends -qq $BUILD_DEPS $COMMON_DEPS nsis wine bc g++-mingw-w64-i686 mingw-w64-i686-dev g++-mingw-w64-x86-64 mingw-w64-x86-64-dev
+  - apt-get install -y --no-install-recommends -qq $BUILD_DEPS $COMMON_DEPS nsis wine-stable bc g++-mingw-w64-i686 mingw-w64-i686-dev g++-mingw-w64-x86-64 mingw-w64-x86-64-dev
   - cd ./depends
   - make HOST=$HOST -j4 | tee $LOGDIR/depends.log
   - cd ..
