@@ -48,6 +48,7 @@ src/qt/test/moc*.cpp
 .dirstamp
 .libs
 
+.idea/
 .*.swp
 *.*~*
 *.bak
