@@ -1099,7 +1099,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
      */
     if (fServer)
     {
-        uiInterface.InitMessage.connect(&SetRPCWarmupStatus);
+        uiInterface.InitMessage.connect(SetRPCWarmupStatus);
         if (!AppInitServers(threadGroup))
             return InitError(_("Unable to start HTTP server. See debug log for details."));
     }
@@ -1494,13 +1494,13 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
     // Either install a handler to notify us when genesis activates, or set fHaveGenesis directly.
     // No locking, as this happens before any background thread is started.
     if (chainActive.Tip() == NULL) {
-        uiInterface.NotifyBlockTip.connect(&BlockNotifyGenesisWait);
+        uiInterface.NotifyBlockTip.connect(BlockNotifyGenesisWait);
     } else {
         fHaveGenesis = true;
     }
 
     if (mapArgs.count("-blocknotify"))
-        uiInterface.NotifyBlockTip.connect(&BlockNotifyCallback);
+        uiInterface.NotifyBlockTip.connect(BlockNotifyCallback);
 
     std::vector<boost::filesystem::path> vImportFiles;
     if (mapArgs.count("-loadblock"))
@@ -1522,7 +1522,7 @@ bool AppInit2(boost::thread_group& threadGroup, CScheduler& scheduler)
         while (!fHaveGenesis) {
             condvar_GenesisWait.wait(lock);
         }
-        uiInterface.NotifyBlockTip.disconnect(&BlockNotifyGenesisWait);
+        uiInterface.NotifyBlockTip.disconnect(BlockNotifyGenesisWait);
     }
 
     // ********************************************************* Step 11: start node
