@@ -8,6 +8,7 @@
 
 #include <boost/signals2/signal.hpp>
 #include <boost/shared_ptr.hpp>
+using namespace boost::placeholders;
 
 class CBlock;
 class CBlockIndex;
