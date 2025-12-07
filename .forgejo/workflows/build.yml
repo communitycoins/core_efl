@@ -1,0 +1,94 @@
+name: Build e-Gulden Wallet
+
+on:
+  push:
+    branches: [ "master", "ubuntu-24-04" ]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: docker
+    container:
+      image: ubuntu:24.04
+
+    env:
+      COIN_NAME: "egulden"
+      BDB_PREFIX: "/usr/local/bdb48"
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install build dependencies
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            build-essential \
+            libtool \
+            autotools-dev \
+            automake \
+            pkg-config \
+            python3 \
+            git \
+            bsdmainutils \
+            libssl-dev \
+            libevent-dev \
+            libboost-system-dev \
+            libboost-filesystem-dev \
+            libboost-chrono-dev \
+            libboost-program-options-dev \
+            libboost-test-dev \
+            libboost-thread-dev \
+            libzmq3-dev \
+            libminiupnpc-dev \
+            ca-certificates \
+            wget
+
+          # hexdump safety fallback
+          [ -e /usr/bin/hexdump ] || ln -s "$(command -v hexdump)" /usr/bin/hexdump
+
+      - name: Build Berkeley DB 4.8
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          wget -O db-4.8.30.NC.tar.gz "https://download.oracle.com/berkeley-db/db-4.8.30.NC.tar.gz"
+          tar -xzvf db-4.8.30.NC.tar.gz
+
+          # GCC 13 atomic clash patch
+          sed -i 's/__atomic_compare_exchange/db___atomic_compare_exchange/g' db-4.8.30.NC/dbinc/atomic.h
+
+          cd db-4.8.30.NC/build_unix
+          ../dist/configure --enable-cxx --disable-shared --with-pic --prefix="$BDB_PREFIX"
+          make -j"$(nproc)"
+          make install
+
+          cd "$GITHUB_WORKSPACE"
+          rm -rf db-4.8.30.NC db-4.8.30.NC.tar.gz
+
+      - name: Set BerkeleyDB env vars
+        run: |
+          echo "BDB_CFLAGS=-I$BDB_PREFIX/include" >> $GITHUB_ENV
+          echo "BDB_LIBS=-L$BDB_PREFIX/lib -ldb_cxx-4.8" >> $GITHUB_ENV
+          echo "LD_LIBRARY_PATH=$BDB_PREFIX/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
+
+      - name: Build e-Gulden daemon & CLI
+        run: |
+          cd "$GITHUB_WORKSPACE"
+          ./autogen.sh
+          ./configure \
+            --with-boost-libdir=/usr/lib/x86_64-linux-gnu \
+            --without-gui \
+            --with-incompatible-bdb \
+            CPPFLAGS="$BDB_CFLAGS" \
+            LDFLAGS="$BDB_LIBS"
+          make -j"$(nproc)"
+          strip src/eguldend src/egulden-cli || true
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: egulden-binaries
+          path: |
+            src/eguldend
+            src/egulden-cli
+            config.log
+            config.status
