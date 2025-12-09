@@ -1,28 +1,21 @@
-name: Build e-Gulden Wallet
+name: Build Corewallet
 
 on:
   push:
-    branches: [ "master", "ubuntu-24-04" ]
-  pull_request:
+    branches: [ "main" ]       # alleen main auto
+  workflow_dispatch:            # handmatig vanaf andere branches
 
 jobs:
   build:
-    runs-on: docker
-    container:
-      image: ubuntu:24.04
-
-    env:
-      COIN_NAME: "egulden"
-      BDB_PREFIX: "/usr/local/bdb48"
-
+    runs-on: self-hosted        # vervang door label dat jouw runner echt heeft
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install build dependencies
+      - name: Install build deps
         run: |
-          apt-get update
-          apt-get install -y --no-install-recommends \
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
             build-essential \
             libtool \
             autotools-dev \
@@ -44,34 +37,25 @@ jobs:
             ca-certificates \
             wget
 
-          # hexdump safety fallback
-          [ -e /usr/bin/hexdump ] || ln -s "$(command -v hexdump)" /usr/bin/hexdump
-
       - name: Build Berkeley DB 4.8
         run: |
+          set -e
+          export BDB_PREFIX="/usr/local/bdb48"
           cd "$GITHUB_WORKSPACE"
           wget -O db-4.8.30.NC.tar.gz "https://download.oracle.com/berkeley-db/db-4.8.30.NC.tar.gz"
           tar -xzvf db-4.8.30.NC.tar.gz
-
-          # GCC 13 atomic clash patch
           sed -i 's/__atomic_compare_exchange/db___atomic_compare_exchange/g' db-4.8.30.NC/dbinc/atomic.h
-
           cd db-4.8.30.NC/build_unix
           ../dist/configure --enable-cxx --disable-shared --with-pic --prefix="$BDB_PREFIX"
           make -j"$(nproc)"
-          make install
+          sudo make install
 
-          cd "$GITHUB_WORKSPACE"
-          rm -rf db-4.8.30.NC db-4.8.30.NC.tar.gz
-
-      - name: Set BerkeleyDB env vars
+      - name: Build corewallet
+        env:
+          BDB_PREFIX: /usr/local/bdb48
         run: |
-          echo "BDB_CFLAGS=-I$BDB_PREFIX/include" >> $GITHUB_ENV
-          echo "BDB_LIBS=-L$BDB_PREFIX/lib -ldb_cxx-4.8" >> $GITHUB_ENV
-          echo "LD_LIBRARY_PATH=$BDB_PREFIX/lib:$LD_LIBRARY_PATH" >> $GITHUB_ENV
-
-      - name: Build e-Gulden daemon & CLI
-        run: |
+          export BDB_CFLAGS="-I$BDB_PREFIX/include"
+          export BDB_LIBS="-L$BDB_PREFIX/lib -ldb_cxx-4.8"
           cd "$GITHUB_WORKSPACE"
           ./autogen.sh
           ./configure \
@@ -83,10 +67,10 @@ jobs:
           make -j"$(nproc)"
           strip src/eguldend src/egulden-cli || true
 
-      - name: Upload artifacts
+      - name: Upload binaries
         uses: actions/upload-artifact@v4
         with:
-          name: egulden-binaries
+          name: corewallet-binaries
           path: |
             src/eguldend
             src/egulden-cli
