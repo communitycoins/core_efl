@@ -1,0 +1,183 @@
+###########################################################
+# Stage 1: Berkeley DB 4.8 (reusable build)
+###########################################################
+FROM ubuntu:24.04 AS stage-1-bdb
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    wget \
+    build-essential \
+    libtool \
+    autotools-dev \
+    automake \
+    pkg-config \
+ && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /tmp
+
+# Berkeley DB 4.8 fetch + patch + build
+RUN wget -O db-4.8.30.NC.tar.gz --no-check-certificate "https://download.oracle.com/berkeley-db/db-4.8.30.NC.tar.gz" \
+ && tar -xzf db-4.8.30.NC.tar.gz
+
+# GCC atomic symbol patch 
+RUN sed -i 's/__atomic_compare_exchange/db___atomic_compare_exchange/g' db-4.8.30.NC/dbinc/atomic.h
+
+WORKDIR /tmp/db-4.8.30.NC/build_unix
+
+RUN CXXFLAGS="-std=c++98" CFLAGS="-fcommon" \
+    ../dist/configure \
+      --enable-cxx \
+      --disable-shared \
+      --with-pic \
+      --prefix=/usr/local/bdb48 \
+ && make -j"$(nproc)" \
+ && make install
+
+# Cleanup
+WORKDIR /
+RUN rm -rf /tmp/db-4.8.30.NC* /tmp/db-4.8.30.NC.tar.gz
+
+# BDB 4.8 is available in /usr/local/bdb48 (include + lib)
+
+
+###########################################################
+# Stage 2: Builder – eguldend + egulden-cli 
+# - uses local repo (COPY egulden/)
+# - links to BDB4.8 from Stage 1
+###########################################################
+FROM ubuntu:24.04 AS stage-2-builder
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libtool \
+    autotools-dev \
+    automake \
+    pkg-config \
+    python3 \
+    git \
+    bsdmainutils \
+    libssl-dev \
+    libevent-dev \
+    libboost-system-dev \
+    libboost-filesystem-dev \
+    libboost-chrono-dev \
+    libboost-program-options-dev \
+    libboost-test-dev \
+    libboost-thread-dev \
+    libzmq3-dev \
+    libminiupnpc-dev \
+    util-linux \
+ && rm -rf /var/lib/apt/lists/*
+
+# hexdump-hack (Ubuntu transferred these to util-linux)
+RUN [ -e /usr/bin/hexdump ] || ln -s "$(which hexdump)" /usr/bin/hexdump
+
+# Fetch BDB 4.8 from stage 1
+COPY --from=stage-1-bdb /usr/local/bdb48 /usr/local/bdb48
+
+# Env vars voor configure
+ENV BDB_CFLAGS="-I/usr/local/bdb48/include"
+ENV BDB_LIBS="-L/usr/local/bdb48/lib -ldb_cxx-4.8"
+ENV LD_LIBRARY_PATH="/usr/local/bdb48/lib"
+
+# ====== eGulden-specific: repo as local COPY ======
+ARG COIN_NAME=egulden
+ARG COIN_DIR=/${COIN_NAME}
+ARG DAEMON=eguldend
+ARG CLI=egulden-cli
+
+# Patched repo (directory 'egulden' in build-context)
+COPY egulden ${COIN_DIR}
+
+WORKDIR ${COIN_DIR}
+
+# Autotools / configure / build
+RUN ./autogen.sh \
+ && ./configure \
+      --with-boost-libdir=/usr/lib/x86_64-linux-gnu \
+      --without-gui \
+      --with-incompatible-bdb \
+      CPPFLAGS="${BDB_CFLAGS}" \
+      LDFLAGS="${BDB_LIBS}" \
+ && make -j"$(nproc)"
+
+# Move binaries to a fixed location
+RUN install -m 0755 "src/${DAEMON}" /usr/local/bin/${DAEMON} && \
+    install -m 0755 "src/${CLI}"    /usr/local/bin/${CLI} && \
+    strip /usr/local/bin/${DAEMON} /usr/local/bin/${CLI}
+
+
+###########################################################
+# Stage 3: Dependency check – manual dependency discovery
+# - distro-libs via ldd + dpkg-query 
+#
+# This step is a manual one: 
+# After the entire image is build execute "ldd ./eguldend"
+# It will report the required libraries in stage-3 and which ones are missing
+# 
+###########################################################
+
+###########################################################
+# Stage 4: Runtime – minimal wallet-daemon image
+# - BDB 4.8 libs + distro-libs + daemon/cli
+###########################################################
+FROM ubuntu:24.04 AS stage-4-runtime
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libboost-filesystem1.83.0 \
+    libboost-program-options1.83.0 \
+    libboost-thread1.83.0 \
+    libboost-chrono1.83.0 \
+    libevent-2.1-7 \
+    libevent-pthreads-2.1-7 \
+    libzmq5 \
+    libminiupnpc17 \
+    ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+
+# Fetch BDB 4.8 runtime-libs
+COPY --from=stage-1-bdb /usr/local/bdb48 /usr/local/bdb48
+ENV LD_LIBRARY_PATH="/usr/local/bdb48/lib"
+
+# non-root user and datadir
+ARG COIN_NAME=egulden
+ENV COIN=${COIN_NAME}
+ENV HOME=/${COIN}
+RUN groupadd -g 1001 ${COIN} \
+ && useradd -u 1001 -g ${COIN} -s /bin/bash -m -d ${HOME} ${COIN} \
+ && mkdir -p ${HOME}/data \
+ && chown -R ${COIN}:${COIN} ${HOME}
+
+WORKDIR ${HOME}
+
+# Daemon + CLI from builder stage
+ARG DAEMON=eguldend
+ARG CLI=egulden-cli
+COPY --from=stage-2-builder --chown=${COIN}:${COIN} /usr/local/bin/${DAEMON} ${HOME}/${COIN}d
+COPY --from=stage-2-builder --chown=${COIN}:${COIN} /usr/local/bin/${CLI}    ${HOME}/${COIN}-cli
+
+USER ${COIN}
+
+# (Optional) create minimal default conf if it doesn't exist yet
+# You can start it out-of-the-box, but the real config can be overwritten using volume
+RUN bash -c '\
+  if [ ! -f ${HOME}/data/${COIN}.conf ]; then \
+    echo "server=1" >> ${HOME}/data/${COIN}.conf; \
+    echo "rpcuser=${COIN}" >> ${HOME}/data/${COIN}.conf; \
+    echo "rpcpassword=${COIN}" >> ${HOME}/data/${COIN}.conf; \
+    echo "rpcallowip=0.0.0.0/0" >> ${HOME}/data/${COIN}.conf; \
+    echo "rpcbind=0.0.0.0" >> ${HOME}/data/${COIN}.conf; \
+  fi \
+'
+
+VOLUME ["${HOME}/data"]
+
+# eGulden
+EXPOSE 21015 11015
+
+CMD ["sh", "-c", "${HOME}/${COIN}d -conf=${HOME}/data/${COIN}.conf -datadir=${HOME}/data -printtoconsole"]
