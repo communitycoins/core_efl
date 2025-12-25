@@ -42,7 +42,7 @@ RUN rm -rf /tmp/db-4.8.30.NC* /tmp/db-4.8.30.NC.tar.gz
 
 
 ###########################################################
-# Stage 2: Builder – eguldend + egulden-cli 
+# Stage 2: Builder - eguldend + egulden-cli 
 # - uses local repo (COPY egulden/)
 # - links to BDB4.8 from Stage 1
 ###########################################################
@@ -111,7 +111,7 @@ RUN install -m 0755 "src/${DAEMON}" /usr/local/bin/${DAEMON} && \
 
 
 ###########################################################
-# Stage 3: Dependency check – manual dependency discovery
+# Stage 3: Dependency check - manual dependency discovery
 # - distro-libs via ldd + dpkg-query 
 #
 # This step is a manual one: 
@@ -121,7 +121,7 @@ RUN install -m 0755 "src/${DAEMON}" /usr/local/bin/${DAEMON} && \
 ###########################################################
 
 ###########################################################
-# Stage 4: Runtime – minimal wallet-daemon image
+# Stage 4: Runtime - minimal wallet-daemon image
 # - BDB 4.8 libs + distro-libs + daemon/cli
 ###########################################################
 FROM ubuntu:24.04 AS stage-4-runtime
