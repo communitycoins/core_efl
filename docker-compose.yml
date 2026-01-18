@@ -1,0 +1,43 @@
+services:
+  egulden-core:
+    image: communitycoins/egulden-core:24.04
+    container_name: cc-egulden-core
+    restart: unless-stopped
+    volumes:
+      - /var/CC/eGulden/blockchain:/data
+    ports:
+      - "11015:11015"              # P2P
+      - "127.0.0.1:21015:21015"    # RPC (host-local)
+
+    command:
+      - eguldend
+      - -server=1
+      - -rpcbind=0.0.0.0
+      - -rpcallowip=172.16.0.0/12
+      - -rpcuser=rot
+      - -rpcpassword=rot
+      - -datadir=/data
+
+  rot:
+    image: communitycoins/rot:latest
+    container_name: cc-egulden-rot
+    restart: unless-stopped
+    depends_on:
+      - egulden-core
+
+    environment:
+      CORE_RPC_HOST: egulden-core
+      CORE_RPC_PORT: 21015
+      CORE_RPC_USER: rot
+      CORE_RPC_PASSWORD: rot
+      CORE_DATA_DIR: /data
+
+      ROT_DATA_DIR: /data/rot
+      ROT_LISTEN_ADDR: 0.0.0.0:11014
+      ROT_COIN_TIKKER: EFL
+
+    volumes:
+      - /var/CC/eGulden/blockchain:/data
+
+    ports:
+      - "11014:11014"
