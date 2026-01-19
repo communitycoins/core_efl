@@ -5,7 +5,7 @@ FROM communitycoins/berkeley-db-4.8:24.04 AS stage-1-bdb
 
 
 ###########################################################
-# Stage 2: Builder – eguldend + egulden-cli
+# Stage 2: Builder - eguldend + egulden-cli
 ###########################################################
 FROM ubuntu:24.04 AS stage-2-builder
 
@@ -64,7 +64,7 @@ RUN install -m 0755 src/eguldend     /usr/local/bin/eguldend && \
 
 
 ###########################################################
-# Stage 3: Runtime – minimal wallet-daemon image
+# Stage 3: Runtime - minimal wallet-daemon image
 ###########################################################
 FROM ubuntu:24.04 AS stage-3-runtime
 
