@@ -53,6 +53,7 @@ RUN ./autogen.sh && \
       --with-boost-libdir=/usr/lib/x86_64-linux-gnu \
       --without-gui \
       --with-incompatible-bdb \
+      --disable-bench \
       CPPFLAGS="${BDB_CFLAGS}" \
       LDFLAGS="${BDB_LIBS}" && \
     make -j$(nproc)
