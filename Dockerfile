@@ -33,7 +33,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     util-linux \
  && rm -rf /var/lib/apt/lists/*
 
-# hexdump compatibility (Ubuntu → util-linux)
+# hexdump compatibility (Ubuntu util-linux)
 RUN [ -e /usr/bin/hexdump ] || ln -s "$(which hexdump)" /usr/bin/hexdump
 
 # Bring in Berkeley DB 4.8
@@ -101,14 +101,9 @@ RUN groupadd -g 1001 ${COIN} \
 COPY --from=stage-2-builder /usr/local/bin/eguldend     /usr/local/bin/eguldend
 COPY --from=stage-2-builder /usr/local/bin/egulden-cli /usr/local/bin/egulden-cli
 
-USER ${COIN}
-WORKDIR ${HOME}
-
-VOLUME ["${HOME}/data"]
-
 # eGulden ports
 EXPOSE 11015 21015
 
-# Let docker-compose control execution
+# Dummy entrypoint and cmd if docker-compose controls execution
 ENTRYPOINT []
 CMD ["eguldend"]
